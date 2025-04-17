@@ -15,20 +15,42 @@ export default function PatientDetailsPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [patientData, tasksData, messagesData] = await Promise.all([
-          getPatientById(id as string),
-          getTasksByPatient(id as string),
-          getMessages(id as string)
-        ])
-        setPatient(patientData)
-        setTasks(tasksData)
-        setMessages(messagesData)
+        // Load each data type separately to identify which call fails
+        try {
+          const patientData = await getPatientById(id as string)
+          if (!patientData) {
+            throw new Error('Patient not found')
+          }
+          setPatient(patientData)
+        } catch (error) {
+          console.error('Error loading patient:', error)
+          throw new Error(`Failed to load patient: ${error instanceof Error ? error.message : 'Unknown error'}`)
+        }
+
+        try {
+          const tasksData = await getTasksByPatient(id as string)
+          setTasks(tasksData)
+        } catch (error) {
+          console.error('Error loading tasks:', error)
+          // Don't throw here, continue with other data
+        }
+
+        try {
+          const messagesData = await getMessages(id as string)
+          setMessages(messagesData)
+        } catch (error) {
+          console.error('Error loading messages:', error)
+          // Don't throw here, continue with other data
+        }
       } catch (error) {
-        console.error('Error loading patient data:', error)
+        console.error('Error in loadData:', error)
+        // Show the error in the UI
+        setError(error instanceof Error ? error.message : 'Failed to load patient data')
       } finally {
         setLoading(false)
       }
@@ -41,6 +63,19 @@ export default function PatientDetailsPage() {
       <MainLayout>
         <div className="flex h-full items-center justify-center">
           <div className="text-lg">Loading patient details...</div>
+        </div>
+      </MainLayout>
+    )
+  }
+
+  if (error) {
+    return (
+      <MainLayout>
+        <div className="flex h-full flex-col items-center justify-center gap-4">
+          <div className="text-lg text-red-600">{error}</div>
+          <Button onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
         </div>
       </MainLayout>
     )
